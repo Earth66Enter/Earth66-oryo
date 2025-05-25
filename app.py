@@ -1,11 +1,34 @@
 
-import streamlit as st
+from flask import Flask, request, abort
+from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
+import os
 
-st.set_page_config(page_title="Earth66 原央 Chat", page_icon="✨")
-st.title("Earth66 語氣 AI 測試站")
-st.subheader("原央正在聽你說話")
+app = Flask(__name__)
 
-user_input = st.text_input("你想對原央說什麼？")
+line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
+handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-if user_input:
-    st.write("原央回應：我聽到了——「{}」".format(user_input))
+@app.route("/callback", methods=["POST"])
+def callback():
+    signature = request.headers["X-Line-Signature"]
+    body = request.get_data(as_text=True)
+
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+
+    return "OK"
+
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):
+    reply_text = "歡迎你，央在這裡等你很久了。"
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text=reply_text)
+    )
+
+if __name__ == "__main__":
+    app.run()
